@@ -63,15 +63,10 @@ python3 screenshot_timer.py --output-dir screenshots --port 8000
 
 - `-o / --output-dir` — folder to temporarily store screenshots (default: `screenshots`)
 - `-p / --port` — starting port to bind to; if busy, it tries the next few ports (default: `8000`)
-- `--host` — address to bind to (default: `127.0.0.1`, this computer only). Used below for remote access.
 
 ## Accessing it from another computer (different networks)
 
-The app must keep running on the Mac whose screen you want to capture — a cloud VM (AWS/Azure/GCP) would only capture the *cloud server's* screen, not yours, so that's not the right tool here. Instead, use a tunnel from your Mac. Two options:
-
-### Option A: Cloudflare Tunnel (recommended — fast, no account needed)
-
-This runs a lightweight `cloudflared` process on your Mac that opens a fast, temporary public HTTPS URL forwarding straight to the app running on `127.0.0.1`. It's noticeably quicker than Tailscale's relay when a direct P2P connection isn't available.
+The app must keep running on the Mac whose screen you want to capture — a cloud VM (AWS/Azure/GCP) would only capture *that server's* screen, not yours, so that's not the right tool here. Instead, use [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/do-more-with-tunnels/trycloudflare/) (via the free `cloudflared` CLI) to expose your Mac's app through a temporary public HTTPS URL.
 
 1. **Install cloudflared** (one-time):
 
@@ -79,14 +74,14 @@ This runs a lightweight `cloudflared` process on your Mac that opens a fast, tem
    brew install cloudflared
    ```
 
-2. **Start Shot Share as normal** (default `127.0.0.1`, no `--host` needed) in one terminal tab:
+2. **Start Shot Share as normal** in one terminal tab:
 
    ```bash
    cd ~/Downloads/shot_share
    python3 screenshot_timer.py
    ```
 
-   Note the port it prints (default `8000`).
+   Note the port it prints (default `8000`), and the User ID/password.
 
 3. **In a second terminal tab**, start the tunnel pointing at that port:
 
@@ -98,48 +93,11 @@ This runs a lightweight `cloudflared` process on your Mac that opens a fast, tem
 
 4. **Share** that `trycloudflare.com` URL along with the User ID and password (from step 2) with the other person — over a trusted channel only.
 
-5. On the other machine, just open that URL in a browser (no Tailscale or any install needed there), log in, and click **Capture**.
+5. On the other machine, just open that URL in a browser (no extra install needed there), log in, and click **Capture**.
 
 6. When done: `Ctrl+C` the tunnel first, then `Ctrl+C` the app (this deletes screenshots and revokes credentials).
 
-> This exposes the app to the public internet (anyone with the URL can reach the login page), unlike the Tailscale option below. The app's own protections still apply — a password is required and the session locks after 3 wrong attempts — but because the URL isn't private, don't leave the tunnel running longer than you need it, and only send the URL/credentials to the person you intend to share with.
-
-### Option B: Tailscale (private network, a bit slower)
-
-If you'd rather not expose anything to the public internet, put both machines on the same private [Tailscale](https://tailscale.com) network (free for personal use) instead — it's a VPN mesh where only your own devices can reach each other. This is slower when Tailscale can't establish a direct peer-to-peer link and falls back to relaying traffic.
-
-1. **Install Tailscale on both machines** and sign in with the same account:
-
-   ```bash
-   brew install --cask tailscale
-   ```
-
-   Open the Tailscale app once on each machine and log in (Machine A = the one running the screenshot app, Machine B = the one that will view screenshots).
-
-2. **On Machine A**, find its Tailscale IP:
-
-   ```bash
-   tailscale ip -4
-   ```
-
-   This prints something like `100.101.102.103`.
-
-3. **On Machine A**, start Shot Share bound to that Tailscale IP instead of localhost:
-
-   ```bash
-   cd ~/Downloads/shot_share
-   python3 screenshot_timer.py --host 100.101.102.103
-   ```
-
-   It will print the User ID, Password, and a URL like `http://100.101.102.103:8000`.
-
-4. **Share with the other system**: send the User ID, password, and that URL to whoever is using Machine B (only over a trusted channel — e.g. a message to yourself or someone you trust, not a public post).
-
-5. **On Machine B**, make sure Tailscale is running and signed into the same account, then open the shared URL in a browser, log in with the User ID/password, and click **Capture** — it will trigger a screenshot on Machine A and display it in the browser on Machine B.
-
-6. When done, go back to the terminal on Machine A and press `Ctrl+C` to stop the server, delete the screenshots, and revoke the credentials.
-
-> Binding to `--host 127.0.0.1` (the default) keeps the app reachable only from the same machine. Binding to a Tailscale IP makes it reachable from any device on your tailnet, so only do this over Tailscale (or another private VPN) — never bind to a public/LAN IP without one, since the credentials are meant for one trusted session, not internet-wide exposure.
+> This exposes the app to the public internet (anyone with the URL can reach the login page). The app's own protections still apply — a password is required and the session locks after 3 wrong attempts — but because the URL isn't private, don't leave the tunnel running longer than you need it, and only send the URL/credentials to the person you intend to share with.
 
 ## Running it whenever you want
 
@@ -169,7 +127,7 @@ shotshare
 
 ## Security notes
 
-- By default the app binds only to `127.0.0.1`, so it's not reachable from other devices. Only pass `--host` with a Tailscale (or other private VPN) IP if you intend for another trusted device to connect.
+- The app binds only to `127.0.0.1`, so it's not reachable from other devices unless you explicitly start a Cloudflare Tunnel (see above) — do that only when you intend to share access with someone.
 - A new random User ID and password are generated each time you start the app.
 - Don't share your login link, User ID, or password with anyone you don't trust — anyone with them can view screenshots taken during that session.
 - After 3 incorrect password attempts, the session locks and shuts down automatically.

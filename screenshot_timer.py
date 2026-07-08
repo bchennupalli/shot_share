@@ -529,11 +529,11 @@ def make_handler(state: AppState) -> type[ScreenshotHandler]:
     return BoundScreenshotHandler
 
 
-def create_server(host: str, start_port: int, state: AppState) -> ThreadingHTTPServer:
+def create_server(start_port: int, state: AppState) -> ThreadingHTTPServer:
     last_error: OSError | None = None
     for port in range(start_port, start_port + 20):
         try:
-            return ThreadingHTTPServer((host, port), make_handler(state))
+            return ThreadingHTTPServer(("127.0.0.1", port), make_handler(state))
         except OSError as exc:
             if exc.errno != errno.EADDRINUSE:
                 raise
@@ -544,17 +544,11 @@ def create_server(host: str, start_port: int, state: AppState) -> ThreadingHTTPS
     ) from last_error
 
 
-def confirm_safe_use(host: str) -> bool:
+def confirm_safe_use() -> bool:
     print("\nWARNING: Shot Share can capture and display screenshots from this computer.")
     print("Use this app only when you understand what will be captured.")
     print("Do not share your user ID, password, browser link, or screenshots with unknown people or strangers.")
     print("Screenshots captured in this session are deleted when the terminal session closes.")
-    if host not in ("127.0.0.1", "localhost"):
-        print(
-            f"\nNOTE: The server will listen on {host}, which is reachable from other "
-            "devices that can route to that address (e.g. over Tailscale or your LAN),"
-            " not just this computer."
-        )
     print("\n1. Approve")
     print("2. Decline")
 
@@ -582,18 +576,9 @@ def main() -> int:
         default=8000,
         help="Starting local web app port. Default: 8000.",
     )
-    parser.add_argument(
-        "--host",
-        default="127.0.0.1",
-        help=(
-            "Address to bind to. Default: 127.0.0.1 (this computer only). "
-            "Use your Tailscale IP (e.g. 100.x.x.x) to allow access from another "
-            "device on your tailnet."
-        ),
-    )
     args = parser.parse_args()
 
-    if not confirm_safe_use(args.host):
+    if not confirm_safe_use():
         print("Declined. No session was started and no credentials were created.")
         return 0
 
@@ -601,7 +586,7 @@ def main() -> int:
     output_dir.mkdir(parents=True, exist_ok=True)
     state = AppState(output_dir)
 
-    server = create_server(args.host, args.port, state)
+    server = create_server(args.port, state)
     state.server = server
 
     def stop_program(signum: int, frame: object) -> None:
@@ -616,7 +601,7 @@ def main() -> int:
     actual_port = server.server_address[1]
     if actual_port != args.port:
         print(f"Port {args.port} was busy, using {actual_port} instead.")
-    print(f"Open: http://{args.host}:{actual_port}")
+    print(f"Open: http://127.0.0.1:{actual_port}")
     print("Press Ctrl+C to stop, delete session screenshots, and revoke credentials.")
 
     try:
