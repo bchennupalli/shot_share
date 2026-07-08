@@ -63,6 +63,44 @@ python3 screenshot_timer.py --output-dir screenshots --port 8000
 
 - `-o / --output-dir` — folder to temporarily store screenshots (default: `screenshots`)
 - `-p / --port` — starting port to bind to; if busy, it tries the next few ports (default: `8000`)
+- `--host` — address to bind to (default: `127.0.0.1`, this computer only). Used below for remote access.
+
+## Accessing it from another computer (different networks)
+
+If you want to run Shot Share on Machine A and view/capture from a browser on Machine B on a **different network**, don't expose the app to the public internet. Instead, put both machines on the same private [Tailscale](https://tailscale.com) network (free for personal use) — it's a VPN mesh where only your own devices can reach each other.
+
+1. **Install Tailscale on both machines** and sign in with the same account:
+
+   ```bash
+   brew install --cask tailscale
+   ```
+
+   Open the Tailscale app once on each machine and log in (Machine A = the one running the screenshot app, Machine B = the one that will view screenshots).
+
+2. **On Machine A**, find its Tailscale IP:
+
+   ```bash
+   tailscale ip -4
+   ```
+
+   This prints something like `100.101.102.103`.
+
+3. **On Machine A**, start Shot Share bound to that Tailscale IP instead of localhost:
+
+   ```bash
+   cd ~/Downloads/shot_share
+   python3 screenshot_timer.py --host 100.101.102.103
+   ```
+
+   It will print the User ID, Password, and a URL like `http://100.101.102.103:8000`.
+
+4. **Share with the other system**: send the User ID, password, and that URL to whoever is using Machine B (only over a trusted channel — e.g. a message to yourself or someone you trust, not a public post).
+
+5. **On Machine B**, make sure Tailscale is running and signed into the same account, then open the shared URL in a browser, log in with the User ID/password, and click **Capture** — it will trigger a screenshot on Machine A and display it in the browser on Machine B.
+
+6. When done, go back to the terminal on Machine A and press `Ctrl+C` to stop the server, delete the screenshots, and revoke the credentials.
+
+> Binding to `--host 127.0.0.1` (the default) keeps the app reachable only from the same machine. Binding to a Tailscale IP makes it reachable from any device on your tailnet, so only do this over Tailscale (or another private VPN) — never bind to a public/LAN IP without one, since the credentials are meant for one trusted session, not internet-wide exposure.
 
 ## Running it whenever you want
 
@@ -92,7 +130,7 @@ shotshare
 
 ## Security notes
 
-- The app binds only to `127.0.0.1`, so it's not reachable from other devices on your network.
+- By default the app binds only to `127.0.0.1`, so it's not reachable from other devices. Only pass `--host` with a Tailscale (or other private VPN) IP if you intend for another trusted device to connect.
 - A new random User ID and password are generated each time you start the app.
 - Don't share your login link, User ID, or password with anyone you don't trust — anyone with them can view screenshots taken during that session.
 - After 3 incorrect password attempts, the session locks and shuts down automatically.
