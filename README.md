@@ -67,7 +67,46 @@ python3 screenshot_timer.py --output-dir screenshots --port 8000
 
 ## Accessing it from another computer (different networks)
 
-If you want to run Shot Share on Machine A and view/capture from a browser on Machine B on a **different network**, don't expose the app to the public internet. Instead, put both machines on the same private [Tailscale](https://tailscale.com) network (free for personal use) — it's a VPN mesh where only your own devices can reach each other.
+The app must keep running on the Mac whose screen you want to capture — a cloud VM (AWS/Azure/GCP) would only capture the *cloud server's* screen, not yours, so that's not the right tool here. Instead, use a tunnel from your Mac. Two options:
+
+### Option A: Cloudflare Tunnel (recommended — fast, no account needed)
+
+This runs a lightweight `cloudflared` process on your Mac that opens a fast, temporary public HTTPS URL forwarding straight to the app running on `127.0.0.1`. It's noticeably quicker than Tailscale's relay when a direct P2P connection isn't available.
+
+1. **Install cloudflared** (one-time):
+
+   ```bash
+   brew install cloudflared
+   ```
+
+2. **Start Shot Share as normal** (default `127.0.0.1`, no `--host` needed) in one terminal tab:
+
+   ```bash
+   cd ~/Downloads/shot_share
+   python3 screenshot_timer.py
+   ```
+
+   Note the port it prints (default `8000`).
+
+3. **In a second terminal tab**, start the tunnel pointing at that port:
+
+   ```bash
+   cloudflared tunnel --url http://127.0.0.1:8000
+   ```
+
+   It prints a random public URL like `https://random-words-1234.trycloudflare.com`. This changes every time you start the tunnel.
+
+4. **Share** that `trycloudflare.com` URL along with the User ID and password (from step 2) with the other person — over a trusted channel only.
+
+5. On the other machine, just open that URL in a browser (no Tailscale or any install needed there), log in, and click **Capture**.
+
+6. When done: `Ctrl+C` the tunnel first, then `Ctrl+C` the app (this deletes screenshots and revokes credentials).
+
+> This exposes the app to the public internet (anyone with the URL can reach the login page), unlike the Tailscale option below. The app's own protections still apply — a password is required and the session locks after 3 wrong attempts — but because the URL isn't private, don't leave the tunnel running longer than you need it, and only send the URL/credentials to the person you intend to share with.
+
+### Option B: Tailscale (private network, a bit slower)
+
+If you'd rather not expose anything to the public internet, put both machines on the same private [Tailscale](https://tailscale.com) network (free for personal use) instead — it's a VPN mesh where only your own devices can reach each other. This is slower when Tailscale can't establish a direct peer-to-peer link and falls back to relaying traffic.
 
 1. **Install Tailscale on both machines** and sign in with the same account:
 
